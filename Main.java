@@ -7,7 +7,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Scanner;
 
-public class Client {
+public class Main {
 	
 	public static Address getServerAddress(String configFilePath){
 		
@@ -48,7 +48,7 @@ public class Client {
     	//Run CommandHandler thread
     	Communicator communicator = new Communicator(serverAddress);
   	
-    	communicator.start();
+    	communicator.communicatorRun();
     	
 		System.out.println("If you want to shut down, press \'y\'");    	
     	Scanner s = new Scanner(System.in);
@@ -58,14 +58,11 @@ public class Client {
     	} while ( "y".equals(str) == false );
 		
     	communicator.setStop();
+    	try { Thread.sleep(100); } catch (InterruptedException e1) {}
     	
-    	try {
-    		communicator.join();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-    	//send quit message and close input stream.
-    	//terminate thread
+    	if(communicator.isAlive())
+    		communicator.interrupt();
+    	
+    	try { communicator.join(); } catch (InterruptedException e) { e.printStackTrace(); }
     }    
 }

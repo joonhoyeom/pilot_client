@@ -1,104 +1,169 @@
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.SocketChannel;
 
 import message.Message;
 
-public class Communicator extends Thread {
+public class Communicator {
 
 	private boolean stop = false;
-	private Address serverAddress;
-
-	private Selector selector;
-	private SocketChannel socketChannel;
-	private ByteBuffer buffer;
-
-	private void processMessages(byte[] recvBuffer) {
-
-	}
-
-	private void processMessage(Message msg) {
-
-	}
-
-	private void sendMessages() {
-
-	}
-
-	public Communicator(Address serverAddress) {
-		this.serverAddress = serverAddress;
-		try {
-			selector = Selector.open();
-			socketChannel = SocketChannel.open();
-			socketChannel.configureBlocking(false);
-			socketChannel.register(selector, SelectionKey.OP_CONNECT);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		// typical socket buffer size 8K
-		buffer = ByteBuffer.allocateDirect(0x2000).order(ByteOrder.nativeOrder());
-	}
-
-	@Override
-	public void run() {
-
-		try {
-			selector.select();
-		} catch (IOException e2) {
-			// TODO Auto-generated catch block
-			e2.printStackTrace();
-		}
+	
+	private ByteBuffer recvBuffer;
+	private ByteBuffer sendBuffer;
+	
+	private SocketHandler socketHandler;
+	private MessageHandler messageHandler;
+	
+	class SocketHandler extends Thread{
 		
-		SelectionKey selectionKey = socketChannel.keyFor(selector);
-		selectionKey.interestOps(SelectionKey.OP_READ);
-		
-		// Read and write data.
-		try {
-			while (!stop) {
-				int readCount = socketChannel.read(buffer);
-				if (readCount == -1) {
-					try {
-						socketChannel.close();
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-					return;
-				}
-				if (readCount > 0)
-					System.out.println("Received Message : " + new String(buffer.array(), 0, readCount + 1, "UTF-8"));
-
-				System.out.println("Non-Block Debug Message");
-				buffer.put("Test message from Client".getBytes());
-				socketChannel.write(buffer);
-				buffer.clear();
-			}
-			// TODO : close socket gracefully
-			// close send buffer.
-		} catch (IOException e1) {
-			System.err.println("IO failed");
+		private Address serverAddress;
+		private SocketChannel socketChannel;
+				
+		public SocketHandler(Address serverAddress){
+			this.serverAddress = serverAddress;
 			try {
-				socketChannel.close();
+				socketChannel = SocketChannel.open();
+				socketChannel.configureBlocking(true);
 			} catch (IOException e) {
-				e.printStackTrace();
+				System.err.println("Socket open failed");
+				System.exit(0);
 			}
-			System.exit(0);
 		}
+		
+		@Override
+		public void run() {
+			try {
+				socketChannel.connect(new InetSocketAddress(serverAddress.getIP(), serverAddress.getPort()));
+			} catch (IOException e2) {
+				System.err.println("connect failed");
+				System.exit(0);
+			}
 
-		try {
-			if (socketChannel.isOpen())
+			// Read and write data.
+			try {
+				while (!stop) {
+
+					//TODO Lock mechanism
+					// receive data from server
+					int readCount = socketChannel.read(recvBuffer);
+					
+					//server closes socket.
+					if (readCount == -1) {
+						try { socketChannel.close(); } catch (IOException e) { e.printStackTrace(); }
+						return;
+					}
+					
+					//Debug Message
+					if (readCount > 0){
+						System.out.println("Received Message : " + new String(recvBuffer.array(), 0, readCount + 1, "UTF-8"));
+					}
+					
+					//TODO Lock Mechanism
+					if(sendBuffer.hasRemaining()){
+						socketChannel.write(sendBuffer);
+						sendBuffer.clear();
+					}
+				}
+
+				// socket close gracefully
+				socketChannel.shutdownOutput();
+				
+				// wait until server close socket
+				//  TODO set time limit
+				while (socketChannel.read(recvBuffer) != -1) { 
+					//intentional blank
+				}
+				
 				socketChannel.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
 
+			} catch (ClosedByInterruptException e) {
+				// socket close gracefully
+				try {
+					socketChannel.shutdownOutput();
+					// wait until server close socket
+					//  TODO set time limit
+					while (socketChannel.read(recvBuffer) != -1) { 
+						//intentional blank
+					}
+					
+					socketChannel.close();
+					
+				} catch (IOException e2) {
+					e2.printStackTrace();
+				}
+			} catch (IOException e1) {
+				System.err.println("IO failed");
+				try { socketChannel.close(); } catch (IOException e) { e.printStackTrace();	}
+			}
+		}
+	};
+	
+	class MessageHandler extends Thread{
+		
+		private void processMessages() {
+			//Deserialize MessageHeader
+			//Deserialize Message
+			//buffer flip ? compact?
+			//processMessage
+		}
+	
+		private void processMessage(Message msg) {
+			
+		}
+		
+		@Override
+		public void run() {
+			//TODO Lock Mechanism
+			//read from recvBuffer
+			//process messages
+		}
+	};	
+
+
+	public Communicator(Address serverAddress) {		
+		socketHandler = new SocketHandler(serverAddress);
+		messageHandler = new MessageHandler();
+				
+		// typical socket buffer size 8K
+		recvBuffer = ByteBuffer.allocateDirect(0x2000).order(ByteOrder.nativeOrder());
+		sendBuffer = ByteBuffer.allocateDirect(0x2000).order(ByteOrder.nativeOrder());
+	}
+
+	public void communicatorRun() {		
+		socketHandler.start();
+		messageHandler.start();
 	}
 
 	public void setStop() {
 		stop = true;
 	}
+	
+	public boolean isAlive(){
+		return ( socketHandler != null && socketHandler.isAlive() ) || ( messageHandler != null && messageHandler.isAlive() );
+	}
+	
+	public void interrupt(){
+		
+		if(socketHandler != null)
+			socketHandler.interrupt();
+		
+		if(messageHandler != null)
+			messageHandler.interrupt();	
+	
+	}
+	
+	public void join() throws InterruptedException {
+		
+		if(socketHandler != null)
+			socketHandler.join();
+			
+		if(messageHandler != null)
+			messageHandler.join();		
+	
+	}
+	
 }

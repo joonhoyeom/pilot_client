@@ -25,8 +25,8 @@ public class Address {
 		port = Short.parseShort(strs[1]);
 	}
 	
-	public String 	getIp() 			{ return ip;	}
-	public void		setIp(String ip) 	{ this.ip = ip; }
+	public String 	getIP() 			{ return ip;	}
+	public void		setIP(String ip) 	{ this.ip = ip; }
 	
 	public short 	getPort() 			{ return port; }
 	public void 	setPort(short port) { this.port = port;	}
