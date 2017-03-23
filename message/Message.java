@@ -3,8 +3,9 @@ package message;
 import java.io.Serializable;
 
 public abstract class Message implements Serializable{
-
 	
-	
-	abstract void action();
+	/**
+	 * 
+	 * */
+	abstract Object respond();
 }
