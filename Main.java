@@ -60,10 +60,10 @@ public class Main {
     	communicator.setStop();
     	try { Thread.sleep(100); } catch (InterruptedException e1) {}
     	
-    	if(communicator.isAlive()){
-    		System.out.println("Communicator threads are still running, it will be interrupted");
+
+    	if(communicator.isAlive())
     		communicator.interrupt();
-    	}
+    	
     	try { communicator.join(); } catch (InterruptedException e) { e.printStackTrace(); }
     }    
 }

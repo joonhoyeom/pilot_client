@@ -6,13 +6,14 @@ import java.nio.ByteOrder;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.SocketChannel;
 
+
 public class Communicator {
 
 	class SocketHandler extends Thread{
 		
 		private Address serverAddress;
 		private SocketChannel socketChannel;
-		
+
 		//Initialize address to connect, create socket as blocking
 		public SocketHandler(Address serverAddress){
 			this.serverAddress = serverAddress;
@@ -27,7 +28,6 @@ public class Communicator {
 		
 		@Override
 		public void run() {
-			
 			//connect to server
 			try {
 				socketChannel.connect(new InetSocketAddress(serverAddress.getIP(), serverAddress.getPort()));
@@ -39,11 +39,12 @@ public class Communicator {
 			// Read and write data.
 			try {
 				while (!stop) {
-
 					// receive data from server
 					int readCount = 0;
 					
-					readCount = socketChannel.read(recvBuffer);	
+					synchronized (recvBufferMutex) {
+						readCount = socketChannel.read(recvBuffer);	
+					}
 					
 					//server closes socket.
 					if (readCount == -1) {
@@ -53,14 +54,15 @@ public class Communicator {
 					
 					//Debug Message
 					if (readCount > 0){
-						System.out.println("[Received Message] " + recvBuffer.asCharBuffer().toString());
-						//processMessage(recvBuffer);
+						System.out.println("Received Message " + recvBuffer.asCharBuffer().toString());
 					}
 					
-					if(sendBuffer.hasRemaining()){
-						socketChannel.write(sendBuffer);
-						sendBuffer.clear();
-					}					
+					synchronized (sendBufferMutex) {
+						if(sendBuffer.hasRemaining()){
+							socketChannel.write(sendBuffer);
+							sendBuffer.clear();
+						}
+					}
 				}
 
 				// socket close gracefully
@@ -68,9 +70,11 @@ public class Communicator {
 				
 				// wait until server close socket
 				//  TODO set time limit
-				while (socketChannel.read(recvBuffer) != -1) { 
-					//intentional blank
-				}
+				synchronized (recvBufferMutex) {
+					while (socketChannel.read(recvBuffer) != -1) { 
+						//intentional blank
+					}
+				}				
 				
 				socketChannel.close();
 			} catch (ClosedByInterruptException e) {
@@ -80,8 +84,10 @@ public class Communicator {
 						socketChannel.shutdownOutput();
 						// wait until server close socket
 						//  TODO set time limit
-						while (socketChannel.read(recvBuffer) != -1) { 
+						synchronized (recvBufferMutex) {
+							while (socketChannel.read(recvBuffer) != -1) { 
 								//intentional blank
+							}
 						}
 						socketChannel.close();
 					}					
@@ -95,24 +101,57 @@ public class Communicator {
 		}
 	};
 	
+	class MessageHandler extends Thread{
+		
+		private void processMessages() {
+			//Deserialize MessageHeader
+			//Deserialize Message
+			//buffer flip ? compact?
+			//processMessage
+		}
+	
+		private void processMessage() {
+			
+		}
+		
+		@Override
+		public void run() {
+			//TODO Lock Mechanism
+			//read from recvBuffer
+			//process messages
+			while(true){
+				
+				if(stop)
+					return ;
+				
+				try {
+					this.sleep(100);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	};	
 	
 	private boolean stop = false;
 	
 	private ByteBuffer recvBuffer;
-//	private Object 	   recvBufferMutex;
+	private Object 	   recvBufferMutex;
 	
 	private ByteBuffer sendBuffer;
-//	private Object	   sendBufferMutex;
+	private Object	   sendBufferMutex;
 	
 	private SocketHandler socketHandler;
+	private MessageHandler messageHandler;
 	
 
-	//Initialize thread classes, mutex, send receive buffer
 	public Communicator(Address serverAddress) {		
 		socketHandler = new SocketHandler(serverAddress);
+		messageHandler = new MessageHandler();
 		
-//		recvBufferMutex = new Object();
-//		sendBufferMutex = new Object();
+		recvBufferMutex = new Object();
+		sendBufferMutex = new Object();
 		
 		// typical socket buffer size 8K
 		recvBuffer = ByteBuffer.allocateDirect(0x2000).order(ByteOrder.nativeOrder());
@@ -121,6 +160,7 @@ public class Communicator {
 
 	public void communicatorRun() {		
 		socketHandler.start();
+		messageHandler.start();
 	}
 
 	public void setStop() {
@@ -128,17 +168,26 @@ public class Communicator {
 	}
 	
 	public boolean isAlive(){
-		return ( socketHandler != null && socketHandler.isAlive() ); //|| ( messageHandler != null && messageHandler.isAlive() );
+		return ( socketHandler != null && socketHandler.isAlive() ) || ( messageHandler != null && messageHandler.isAlive() );
 	}
 	
-	public void interrupt(){		
+	public void interrupt(){
+		
 		if(socketHandler != null)
 			socketHandler.interrupt();
+		
+		if(messageHandler != null)
+			messageHandler.interrupt();	
+	
 	}
 	
-	public void join() throws InterruptedException {		
+	public void join() throws InterruptedException {
+		
 		if(socketHandler != null)
 			socketHandler.join();
+			
+		if(messageHandler != null)
+			messageHandler.join();		
 	}
 	
 }

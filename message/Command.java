@@ -1,6 +1,7 @@
 package message;
 
 
+
 public class Command {
 	
 	final public static int DIR 		= 0;
@@ -17,3 +18,4 @@ public class Command {
 
 	final public static int LASTCOMMAND = 8;
 }
+
