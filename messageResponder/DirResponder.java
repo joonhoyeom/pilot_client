@@ -1,6 +1,8 @@
 package messageResponder;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,6 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DirResponder extends MessageResponder {
+	
+	final static String HOMEPATH = "C:\\Users\\joonho\\Desktop";
+//	final static String HOMEPATH = "/mnt/c/Users/joonho/Desktop";
 	
 	class MetaData{
 		public String name;
@@ -27,12 +32,16 @@ public class DirResponder extends MessageResponder {
 	
 	@Override
 	public Object respond(Object messageBody) {
+		Charset charset = Charset.forName("UTF-8");
+		String uri = charset.decode(ByteBuffer.wrap((byte[])messageBody)).toString();
 		
-		String uri = (String)messageBody;
+		if("".equals(uri) || uri == null)
+			uri = HOMEPATH;
+		
 		Path path = Paths.get(uri);
-		String retVal = null;
+		String resultJSON = null;
 		if(Files.notExists(path)){
-			return "";
+			return "".getBytes();
 		}
 		
 		try {
@@ -44,19 +53,18 @@ public class DirResponder extends MessageResponder {
 				metaData.name = i.getFileName().toString();
 				metaData.time = Files.getLastModifiedTime(path).toString();				
 				metaData.fileType = getFileType(i);
-				//metaData.size = Files.size(i); //why IOException?
-				
+				if(Files.isRegularFile(i))
+					metaData.size = Files.size(i); //why IOException?
+				else
+					metaData.size = 0;
 				list.add(metaData);
 			}
-			retVal = generateJSON(list);
+			resultJSON = generateJSON(list);
 		} catch (IOException e) {
-			return "";
-		}
-		
-		System.out.println(retVal);
-		
-		
-		return null;
+			System.err.println("DirResponder : IOException");
+			return "".getBytes();
+		}				
+		return charset.encode(resultJSON).array();
 	}
 	
 	private String getFileType(Path p) {

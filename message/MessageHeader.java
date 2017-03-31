@@ -3,13 +3,13 @@ package message;
 import java.nio.ByteBuffer;
 
 public class MessageHeader {
-	public final static String messageStart = "%start";
-	public final static int serializedSize = 14;
+	public final static byte[] messageStart = {(byte) 0xF9, (byte) 0xBE, (byte) 0xB4, (byte) 0xD9 };
+	public final static int serializedSize = 12;
 	private int command;
 	private int messageBodySize;
 	
 	public MessageHeader(int command, int messageBodySize){
-		if(command > Command.LASTCOMMAND || command < 0){
+		if(Command.isValidCommand(command) == false){
 			command = -1; // INVALID COMMAND
 			messageBodySize = 0;
 		}
@@ -19,7 +19,7 @@ public class MessageHeader {
 		}
 	}
 	
-	public MessageHeader(byte [] bytes){
+	public MessageHeader(byte [] bytes, int offset){
 		
 		//Invalid MessageHeader size.
 		if(bytes.length < serializedSize){
@@ -28,9 +28,9 @@ public class MessageHeader {
 		}
 		
 		ByteBuffer buffer = ByteBuffer.allocate(serializedSize);
-		buffer.put(bytes);
-		command = buffer.getInt(6);
-		messageBodySize = buffer.getInt(10);
+		buffer.put(bytes, offset, serializedSize);
+		command = buffer.getInt(4);
+		messageBodySize = buffer.getInt(8);
 	}
 	
 	public int getMessageBodySize(){
@@ -45,7 +45,7 @@ public class MessageHeader {
 	
 	public byte [] getBytes(){
 		ByteBuffer buffer = ByteBuffer.allocate(serializedSize);
-		buffer.put(messageStart.getBytes());
+		buffer.put(messageStart);
 		buffer.putInt(command);
 		buffer.putInt(messageBodySize);
 		return buffer.array();

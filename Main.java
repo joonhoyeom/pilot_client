@@ -37,7 +37,7 @@ public class Main {
     	return new Address(ipstring);
 	}
 	
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
     	
     	
     	Address serverAddress = getServerAddress("ServerAddress.txt");
@@ -58,12 +58,12 @@ public class Main {
     	} while ( "y".equals(str) == false );
 		
     	communicator.setStop();
-    	try { Thread.sleep(100); } catch (InterruptedException e1) {}
+    	try { Thread.sleep(300); } catch (InterruptedException e1) {}
     	
-
-    	if(communicator.isAlive())
+    	if(communicator.isAlive()){
+    		System.out.println("Communicator threads are still running, it will be interrupted");
     		communicator.interrupt();
-    	
+    	}
     	try { communicator.join(); } catch (InterruptedException e) { e.printStackTrace(); }
     }    
 }
