@@ -141,24 +141,29 @@ public class Communicator {
 		
 		private void processMessages() {
 			byte[] recvBufferCopy = null;
-					
-			//fetch messages from recvBuffer
+			
+			//TODO reduce critical section
+			//fetch messages from recvBuffer, and process each message
 			synchronized (recvBufferMutex) {
 				
 				if(recvBuffer.position() > 0){
+					
+					//copy data in recvBuffer 
 					recvBufferCopy = new byte[recvBuffer.position()];
 					System.arraycopy(recvBuffer.array(), 0, recvBufferCopy, 0, recvBufferCopy.length);
 					recvBuffer.clear();
 															
 					int i = 0;
-					while(true){
+					while(i < recvBufferCopy.length){						
+						//Find position of first messageStart
 						int headerPos = Utils.indexOf(recvBufferCopy, MessageHeader.messageStart, i);
 						
 						if(headerPos == -1){
 							System.out.println("No MessageStart");
+							System.out.println("["+ (recvBufferCopy.length - i) +"] : recvBufferCopy dump"); 
+							Utils.printByteArray(recvBufferCopy, i);
 							break;
 						}
-						System.out.println("Got messageStart");
 						//Header is not arrived yet
 						if (recvBufferCopy.length - headerPos < MessageHeader.serializedSize) {
 							System.out.println("Invalid Header");

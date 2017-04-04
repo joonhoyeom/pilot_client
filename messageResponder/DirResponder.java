@@ -12,7 +12,7 @@ import java.util.List;
 
 public class DirResponder extends MessageResponder {
 	
-	final static String HOMEPATH = "C:\\Users\\joonho\\Desktop";
+	final static String HOMEPATH = ".";
 //	final static String HOMEPATH = "/mnt/c/Users/joonho/Desktop";
 	
 	class MetaData{

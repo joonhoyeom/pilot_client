@@ -43,4 +43,17 @@ public class Utils {
 
         return failure;
     }
+    
+    public static void printByteArray (byte []arr, int startPos){
+    	
+    	//illegal input
+    	if(arr.length < startPos || arr.length < 1){
+    		System.err.println("[Utils.printByteArray] illegal input error");
+    		return;
+    	}
+    	for(int i = startPos; i < arr.length - 1; i++)
+    		System.out.print(arr[i] + " ");
+    	
+    	System.out.println(arr[arr.length-1]);
+    }
 }
