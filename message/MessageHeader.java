@@ -3,6 +3,7 @@ package message;
 import java.nio.ByteBuffer;
 
 public class MessageHeader {
+	//Magic value which is uncommon in data stream
 	public final static byte[] messageStart = {(byte) 0xF9, (byte) 0xBE, (byte) 0xB4, (byte) 0xD9 };
 	public final static int serializedSize = 12;
 	private int command;
@@ -18,7 +19,8 @@ public class MessageHeader {
 			this.messageBodySize = messageBodySize;
 		}
 	}
-	
+
+	//For deserialization MessageHeader from byte stream
 	public MessageHeader(byte [] bytes, int offset){
 		
 		//Invalid MessageHeader size.
@@ -42,7 +44,8 @@ public class MessageHeader {
 	}
 	
 	public int getCommand() { return command; }
-	
+
+	//Serialize
 	public byte [] getBytes(){
 		ByteBuffer buffer = ByteBuffer.allocate(serializedSize);
 		buffer.put(messageStart);

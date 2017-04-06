@@ -20,18 +20,15 @@ public abstract class MessageResponder {
 			
 			case Command.COPY:
 				return new CopyResponder();
-			
-			case Command.PASTE:
-				return new PasteResponder();
-			
+
 			case Command.DELETE:
 				return new DeleteResponder();
 
-			case Command.FILE:
-				return new FileResponder();
+			case Command.FILEUP:
+				return new FileUpResponder();
 
-			case Command.FILERES:
-				return new FileresResponder();
+			case Command.FILEDOWN:
+				return new FileDownResponder();
 
 			default:
 				return null;

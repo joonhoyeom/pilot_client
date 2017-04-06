@@ -1,5 +1,8 @@
 package messageResponder;
 
+import message.Command;
+import message.MessageHeader;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -15,7 +18,7 @@ public class DirResponder extends MessageResponder {
 	final static String HOMEPATH = ".";
 //	final static String HOMEPATH = "/mnt/c/Users/joonho/Desktop";
 	
-	class MetaData{
+	class FileMetaData{
 		public String name;
 		public String time;
 		public String fileType;
@@ -34,41 +37,51 @@ public class DirResponder extends MessageResponder {
 	public Object respond(Object messageBody) {
 		Charset charset = Charset.forName("UTF-8");
 		String uri = charset.decode(ByteBuffer.wrap((byte[])messageBody)).toString();
-		
+		uri = uri.trim();
+
+		//null uri
 		if("".equals(uri) || uri == null)
-			uri = HOMEPATH;
-		
+			return null;
+
 		Path path = Paths.get(uri);
+
+		//Invalid uri
+		if(Files.notExists(path))
+			return null;
+
 		String resultJSON = null;
-		if(Files.notExists(path)){
-			return "".getBytes();
-		}
-		
 		try {
 			DirectoryStream<Path> dirStream = Files.newDirectoryStream(path);
-			ArrayList<MetaData> list = new ArrayList<MetaData>();
+			ArrayList<FileMetaData> list = new ArrayList<FileMetaData>();
 			for(Path i : dirStream){
-				MetaData metaData = new MetaData();
+				FileMetaData metaData = new FileMetaData();
 				
 				metaData.name = i.getFileName().toString();
-				metaData.time = Files.getLastModifiedTime(path).toString();				
+				metaData.time = Files.getLastModifiedTime(i).toString().replace("T", " ").substring(0, 19);
 				metaData.fileType = getFileType(i);
 				if(Files.isRegularFile(i))
-					metaData.size = Files.size(i); //why IOException?
+					metaData.size = Files.size(i);
 				else
 					metaData.size = 0;
 				list.add(metaData);
 			}
 			resultJSON = generateJSON(list);
 		} catch (IOException e) {
-			System.err.println("DirResponder : IOException");
-			return "".getBytes();
-		}				
-		return charset.encode(resultJSON).array();
-	}
-	
-	private String getFileType(Path p) {
+			e.printStackTrace();
+			return null;
+		}
 
+		byte [] resultJSONByte = charset.encode(resultJSON).array();
+		MessageHeader mh = new MessageHeader(Command.DIRRES, resultJSONByte.length);
+
+		ByteBuffer message = ByteBuffer.allocate(MessageHeader.serializedSize + resultJSONByte.length);
+		message.put(mh.getBytes());
+		message.put(resultJSONByte);
+		//JSON string to byte array
+		return message.array();
+	}
+
+	private String getFileType(Path p) {
 		String fileExtension = null;
 
 		if (Files.isDirectory(p)) {
@@ -77,6 +90,7 @@ public class DirResponder extends MessageResponder {
 		fileExtension = p.toString();
 		if (fileExtension.contains(".")) {
 			fileExtension = fileExtension.substring(fileExtension.lastIndexOf("."));
+			//end with dot(.) or there is no extension
 			if(fileExtension.length() <= 1)
 				fileExtension = "bin";
 			else
@@ -86,11 +100,12 @@ public class DirResponder extends MessageResponder {
 		
 		return fileExtension;
 	}
-	
-	private String generateJSON(List<MetaData> list){
+
+	//MetaData array to JSON string
+	private String generateJSON(List<FileMetaData> list){
 		String jsonArray = "[ ";
 		
-		for(MetaData i : list){
+		for(FileMetaData i : list){
 			jsonArray = jsonArray + i.toString() + " ,\n";
 		}
 		jsonArray = jsonArray.substring(0, jsonArray.length()-2);

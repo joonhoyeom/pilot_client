@@ -38,12 +38,7 @@ public class Main {
 	}
 	
     public static void main(String[] args) throws InterruptedException {
-    	
-    	
     	Address serverAddress = getServerAddress("ServerAddress.txt");
-    	
-    	System.out.println("## DEBUG ## Address" + serverAddress.toString());
-  	    	 	   	
     	
     	//Run CommandHandler thread
     	Communicator communicator = new Communicator(serverAddress);
