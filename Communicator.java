@@ -1,6 +1,8 @@
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.ClosedByInterruptException;
@@ -8,9 +10,15 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.Set;
 
+import message.Command;
+import message.FileUpMessageBody;
 import message.MessageHeader;
 import messageResponder.MessageResponder;
 import utils.Utils;
@@ -98,7 +106,7 @@ public class Communicator {
                         }
                     }
                     //if there are messages to send, set writable option
-                    synchronized (sendBufferMutex){
+                    synchronized (sendBufferMutex) {
                         if (sendBuffer.position() > 0) {
                             socketChannel.keyFor(selector).interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
                         }
@@ -198,8 +206,52 @@ public class Communicator {
                         System.arraycopy(recvBufferCopy, messageBodyStart, messageBody, 0, header.getMessageBodySize());
 
                         //Process MessageBody
-                        //Incomplete code
-                        {
+                        if (header.getCommand() == Command.FILEDOWN) {
+                            Charset charset = Charset.forName("UTF-8");
+                            String targ = charset.decode(ByteBuffer.wrap((byte[]) messageBody)).toString();
+                            targ = targ.trim();
+
+                            //null uri
+                            if ("".equals(targ) || targ == null){
+                                i = messageBodyEnd;
+                                continue;
+                            }
+                            Path path = Paths.get(targ);
+                            //Invalid uri
+                            if (Files.notExists(path)){
+                                i = messageBodyEnd;
+                                continue;
+                            }
+
+                            try {
+                                InputStream fin = Files.newInputStream(path, StandardOpenOption.READ);
+                                byte[] buffer = new byte[0x2000];
+                                int readCount = 0;
+                                while ((readCount = fin.read(buffer)) != -1) {
+                                    if (readCount > 0) {
+                                        byte[] data = new byte[readCount];
+                                        System.arraycopy(buffer, 0, data, 0, readCount);
+                                        FileUpMessageBody fileUpMessageBody = new FileUpMessageBody(targ, data);
+                                        while (pushMessage(Command.FILEUP, fileUpMessageBody.serialize()) == false) {
+                                            try {
+                                                Thread.sleep(100);
+                                            } catch (InterruptedException e) {
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
+                                //EOF message
+                                FileUpMessageBody fileUpMessageBody = new FileUpMessageBody(targ, null);
+                                pushMessage(Command.FILEUP, fileUpMessageBody.serialize());
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                break;
+                            }
+
+                            byte[] responseMessage = null;
+
+                        } else {
                             MessageResponder mr = MessageResponder.newMessageResponder(header);
                             if (mr != null) {
                                 byte[] responseMessage = (byte[]) (mr.respond(messageBody));
@@ -218,6 +270,24 @@ public class Communicator {
                     return;
             }
 
+        }
+
+        public boolean pushMessage(int command, byte[] messageBody) {
+            if (Command.isValidCommand(command) == false)
+                return false;
+
+            MessageHeader header = new MessageHeader(command, messageBody.length);
+
+            int pushPos = sendBuffer.position();
+            try {
+                sendBuffer.put(header.getBytes());
+                sendBuffer.put(messageBody);
+            } catch (BufferOverflowException e) {
+                sendBuffer.position(pushPos); //eliminate pushed message
+                //System.err.println(" send buffer overflow");
+                return false;
+            }
+            return true;
         }
 
         @Override

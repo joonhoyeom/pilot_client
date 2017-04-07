@@ -16,7 +16,10 @@ public class FileUpResponder extends MessageResponder {
 		FileUpMessageBody fileUpMessageBody = new FileUpMessageBody("", null);
 		fileUpMessageBody = (FileUpMessageBody) fileUpMessageBody.deserialize((byte[])messageBody);
 
-		Path path = Paths.get(fileUpMessageBody.getFilePath().replace(".", "_uploaded.").trim());
+		String fileName = fileUpMessageBody.getFilePath();
+		fileName = fileName.substring(fileName.lastIndexOf("\\")).replace(".", "_uploaded.").trim();
+
+		Path path = Paths.get("."+fileName);
 		try {
 			OutputStream os = Files.newOutputStream(path, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 			if(fileUpMessageBody.getData() != null)
